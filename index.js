@@ -13,6 +13,7 @@ console.log(PORT);
 app.use(express.json());
 
 app.use('/v1/auth', require('./routes/userRoutes'));
+app.use('/v1/roles', require('./routes/roleRoutes'));
 
 app.listen(PORT, () => {
     console.log(`Server Running on Port ${PORT}`);
