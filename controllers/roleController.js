@@ -1,5 +1,6 @@
 // Role Model
 const Role = require('../models/roleModel');
+const { Snowflake } = require('@theinternetfolks/snowflake');
 
 // Create a new role
 const createRole = async (req, res) => {
@@ -18,14 +19,16 @@ const createRole = async (req, res) => {
         }
 
         // Create the new role
-        const newRole = new Role({ name });
+        const id = Snowflake.generate();
+
+        const newRole = new Role({ id, name });
         await newRole.save();
 
         return res.status(200).json({
             status: true,
             content: {
                 data: {
-                    id: newRole.id,
+
                     name: newRole.name,
                     created_at: newRole.created_at,
                     updated_at: newRole.updated_at,

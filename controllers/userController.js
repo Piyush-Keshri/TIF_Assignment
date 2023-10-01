@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
 const { authSchema } = require('../helpers/validationSchema');
+const { Snowflake } = require('@theinternetfolks/snowflake');
 
 // @desc signup a user
 // @route /v1/auth/signup
@@ -20,8 +21,10 @@ const signUp = asyncHandler(async (req, res) => {
     }
     // hash password
     const hashedPassword = await bcrypt.hash(result.password, 10);
+    const id = Snowflake.generate();
 
     const user = await User.create({
+        id,
         username: result.username,
         email: result.email,
         password: hashedPassword

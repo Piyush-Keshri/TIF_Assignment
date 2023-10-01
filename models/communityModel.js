@@ -8,7 +8,8 @@ const communitySchema = new mongoose.Schema({
         unique: true
     },
     owner: {
-        type: mongoose.Schema.Types.String, ref: 'User'
+        type: String,
+        ref: 'User'
     },
     created_at: {
         type: Date, default: Date.now
