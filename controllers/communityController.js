@@ -1,8 +1,9 @@
+
 const CommunityModel = require('../models/communityModel');
 const MemberModel = require('../models/memberModel');
 const UserModel = require('../models/userModel');
 const { Snowflake } = require('@theinternetfolks/snowflake');
-
+const jwt = require('jsonwebtoken');
 // @desc Create a Community via user
 // @route /v1/community/
 // @access private
@@ -52,8 +53,6 @@ const createCommunity = async (req, res) => {
         return res.status(500).json({ status: false, message: 'Error creating community.', error: error.message });
     }
 };
-
-
 
 
 // @desc Get All Communities 
@@ -111,15 +110,172 @@ const getAllCommunities = async (req, res) => {
     }
 };
 
+
 // @desc Get All Members
 // @route /v1/community/:id/members
 // @access public
 
+const getAllMembers = async (req, res) => {
+    try {
+        const communityId = req.params.id;
+        const page = parseInt(req.query.page) || 1;
+        const perPage = 10;
+
+        // Query to get members of the community with pagination
+        const members = await MemberModel.find({ community: communityId })
+
+        // Count total members in the community
+        const totalMembers = await MemberModel.countDocuments({ community: communityId });
+
+        // Calculate the total number of pages
+        const totalPages = Math.ceil(totalMembers / perPage);
+
+        // Prepare the response
+        const response = ({
+            meta: {
+                total: totalMembers,
+                pages: totalPages,
+                page: page,
+            },
+            data: members.map((member) => ({
+                id: member.id,
+                community: member.community,
+                user: {
+                    id: member.user,
+                },
+                role: {
+                    id: member.role,
+                },
+                created_at: member.created_at,
+            })),
+        });
+
+        return res.status(200).json({ status: true, content: response });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: false, message: 'Internal server error' });
+    }
+};
+
+
+// @desc Get My Communities
+// @route /v1/community/me/owner
+// @access private
+
+
+const getMyOwnedCommunity = async (req, res) => {
+    try {
+        const token = req.headers.authorization;
+
+        if (!token) {
+            return res.status(401).json({ status: false, message: 'Unauthorized' });
+        }
+
+        // Verify and decode the JWT token
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        const userId = decoded.user.id;
+        // Pagination options
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // Query to find communities owned by the user
+        const communities = await CommunityModel.find({ owner: userId })
+            .skip(skip)
+            .limit(limit);
+
+        // Count the total number of owned communities
+        const totalOwnedCommunities = await CommunityModel.countDocuments({ owner: userId });
+
+        const totalPages = Math.ceil(totalOwnedCommunities / limit);
+
+        // Prepare the response data
+        const response = {
+            status: true,
+            content: {
+                meta: {
+                    total: totalOwnedCommunities,
+                    pages: totalPages,
+                    page: page,
+                },
+                data: communities.map((community) => ({
+                    id: community.id,
+                    name: community.name,
+                    slug: community.slug,
+                    owner: community.owner,
+                    created_at: community.created_at,
+                    updated_at: community.updated_at,
+                })),
+            },
+        };
+
+        return res.status(200).json(response);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: false, message: 'Internal server error' });
+    }
+};
+
+
+// @desc Get Communities I Joined.
+// @route GET /v1/community/me/member
+// @access private
+
+const getMyJoinedCommunities = async (req, res) => {
+    try {
+        const token = req.headers.authorization;
+
+        if (!token) {
+            return res.status(401).json({ status: false, message: 'Unauthorized' });
+        }
+
+        // Verify and decode the JWT token
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        const userId = decoded.user.id;
+
+        // Pagination parameters (you can customize these as needed)
+        const perPage = 10; // Number of items per page
+        const page = parseInt(req.query.page) || 1; // Current page number
+
+        // Query to find communities where the user is a member
+        const query = {
+            'members.user': userId,
+        };
+
+        // Count the total number of matching documents
+        const totalCommunities = await CommunityModel.countDocuments(query);
+
+        // Fetch communities with pagination
+        const communities = await CommunityModel.find(query)
+            .skip((page - 1) * perPage)
+            .limit(perPage)
+            .populate({
+                path: 'owner',
+                select: 'id username', // Only select 'id' and 'name' fields for the owner
+            })
+            .lean(); // Convert Mongoose document to plain JavaScript object
+
+        const totalPages = Math.ceil(totalCommunities / perPage);
+
+        // Prepare the response data
+        const responseData = {
+            meta: {
+                total: totalCommunities,
+                pages: totalPages,
+                page: page,
+            },
+            data: communities,
+        };
+
+        res.status(200).json({ status: true, content: responseData });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ status: false, message: 'Internal server error' });
+    }
+};
 
 
 
 
 
-
-
-module.exports = { createCommunity, getAllCommunities };
+module.exports = { createCommunity, getAllCommunities, getAllMembers, getMyOwnedCommunity, getMyJoinedCommunities };
